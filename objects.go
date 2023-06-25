@@ -73,6 +73,7 @@ type Index struct {
 	Service_by_name map[string]*Service `json:"service_by_name,omitempty"`
 	ServiceGroup_by_name map[string]*ServiceGroup `json:"servicegroup_by_name,omitempty"`
 	Policy_list []*Policy `json:"policy_list,omitempty"`
+	Policy_by_ruleid_index map[int]*Policy
 	Target_tree *radix.Radix
 	Target_mask_index map[int][]*Policy
 	Source_tree *radix.Radix
@@ -127,6 +128,7 @@ func get_vdom(name string)(*Index) {
 			Service_by_name: make(map[string]*Service),
 			ServiceGroup_by_name: make(map[string]*ServiceGroup),
 			Policy_list: nil,
+			Policy_by_ruleid_index: make(map[int]*Policy),
 			Target_tree: radix.NewRadix(),
 			Target_mask_index: make(map[int][]*Policy),
 			Source_tree: radix.NewRadix(),
@@ -417,6 +419,10 @@ func resolve_links(index *Index)(error) {
 
 	/* index policy by destination network, by source network and by service */
 	for _, p = range index.Policy_list {
+
+		/* Index by rule */
+		index.Policy_by_ruleid_index[p.Id] = p
+
 		for _, o = range p.srcaddr_lookup {
 			if o.Network != "" {
 				ipnet, err = index_cidr(index.Source_tree, o.Network, p)
@@ -780,4 +786,15 @@ func search_service_group(sg *ServiceGroup, case_insensitive bool, s string)(boo
 		}
 	}
 	return false
+}
+
+func list_policy_by_rule(index *Index, rule int)([]*Policy) {
+	var p *Policy
+	var ok bool
+
+	p, ok = index.Policy_by_ruleid_index[rule]
+	if !ok {
+		return nil
+	}
+	return []*Policy{p}
 }

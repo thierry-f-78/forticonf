@@ -39,6 +39,8 @@ func main() {
 	var search string
 	var searchi string
 	var vdomlist bool
+	var rulesid string
+	var rule int
 
 	flag.StringVar(&file,     "config",     "",    "Expect config file")
 	flag.StringVar(&vdom,     "vdom",       "",    "Perform requests in this vdom")
@@ -52,6 +54,7 @@ func main() {
 	flag.BoolVar(&used_pro,   "used-proto", false, "List all protocols in use in the vdom")
 	flag.StringVar(&search,   "search",     "",    "List all objects containing the search string in name or comments")
 	flag.StringVar(&searchi,  "searchi",    "",    "same than search but case insensitive")
+	flag.StringVar(&rulesid,  "rules-id",   "",    "Filter comma separated list of rules id")
 	flag.Parse()
 
 	if file == "" {
@@ -307,6 +310,34 @@ func main() {
 			intersection_started = true
 		} else {
 			final = intersection_policies(pols, final)
+		}
+	}
+
+	if rulesid != "" {
+
+		/* Split destination using ',' as separator */
+		for _, src = range strings.Split(rulesid, ",") {
+
+			/* Convert rule string to int */
+			rule, err = strconv.Atoi(src)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Can't decode rule id %q: %s\n", src, err.Error())
+				os.Exit(1)
+			}
+
+			/* lookup policies */
+			pols = list_policy_by_rule(index, rule)
+
+			/* Merge inter with pols */
+			inter = merge_policies(pols, inter)
+		}
+
+		/* Merge inter with final. we keep intersection of rules */
+		if !intersection_started {
+			final = inter
+			intersection_started = true
+		} else {
+			final = intersection_policies(inter, final)
 		}
 	}
 

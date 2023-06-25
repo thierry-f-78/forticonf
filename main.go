@@ -160,12 +160,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if src != "" {
@@ -190,12 +185,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if tcp_port != "" {
@@ -220,12 +210,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if udp_port != "" {
@@ -250,12 +235,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if proto != "" {
@@ -273,12 +253,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if src_mask > 0 {
@@ -287,12 +262,7 @@ func main() {
 		pols = list_policy_by_source_mask(index, src_mask)
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = pols
-			intersection_started = true
-		} else {
-			final = intersection_policies(pols, final)
-		}
+		final = intersection_policies(&intersection_started, pols, final)
 	}
 
 	if search != "" {
@@ -301,12 +271,7 @@ func main() {
 		pols = list_policy_by_search(index, false, search)
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = pols
-			intersection_started = true
-		} else {
-			final = intersection_policies(pols, final)
-		}
+		final = intersection_policies(&intersection_started, pols, final)
 	}
 
 	if searchi != "" {
@@ -315,12 +280,7 @@ func main() {
 		pols = list_policy_by_search(index, true, searchi)
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = pols
-			intersection_started = true
-		} else {
-			final = intersection_policies(pols, final)
-		}
+		final = intersection_policies(&intersection_started, pols, final)
 	}
 
 	if rulesid != "" {
@@ -345,12 +305,7 @@ func main() {
 		}
 
 		/* Merge inter with final. we keep intersection of rules */
-		if !intersection_started {
-			final = inter
-			intersection_started = true
-		} else {
-			final = intersection_policies(inter, final)
-		}
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	/* Sort final list by rule id */
@@ -398,10 +353,15 @@ func ip2net(network string)(*net.IPNet, error) {
 	return ipnet, nil
 }
 
-func intersection_policies(new_list []*Policy, final_list []*Policy)([]*Policy) {
+func intersection_policies(intersection_started *bool, new_list []*Policy, final_list []*Policy)([]*Policy) {
 	var out_list []*Policy
 	var p1 *Policy
 	var p2 *Policy
+
+	if !*intersection_started {
+		*intersection_started = true
+		return new_list
+	}
 
 	for _, p1 = range new_list {
 		for _, p2 = range final_list {

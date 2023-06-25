@@ -140,6 +140,8 @@ func main() {
 
 	if dest != "" {
 
+		inter = nil
+
 		/* Split destination using ',' as separator */
 		for _, dest = range strings.Split(dest, ",") {
 
@@ -167,6 +169,8 @@ func main() {
 	}
 
 	if src != "" {
+
+		inter = nil
 
 		/* Split destination using ',' as separator */
 		for _, src = range strings.Split(src, ",") {
@@ -196,6 +200,8 @@ func main() {
 
 	if tcp_port != "" {
 
+		inter = nil
+
 		/* Split destination using ',' as separator */
 		for _, src = range strings.Split(tcp_port, ",") {
 
@@ -224,6 +230,8 @@ func main() {
 
 	if udp_port != "" {
 
+		inter = nil
+
 		/* Split destination using ',' as separator */
 		for _, src = range strings.Split(tcp_port, ",") {
 
@@ -251,6 +259,8 @@ func main() {
 	}
 
 	if proto != "" {
+
+		inter = nil
 
 		/* Split destination using ',' as separator */
 		for _, src = range strings.Split(proto, ",") {
@@ -314,6 +324,8 @@ func main() {
 	}
 
 	if rulesid != "" {
+
+		inter = nil
 
 		/* Split destination using ',' as separator */
 		for _, src = range strings.Split(rulesid, ",") {

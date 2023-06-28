@@ -57,12 +57,9 @@ type Policy struct {
 	Action string `json:"action,omitempty"`
 	srcaddr []string /* original names in conf */
 	Srcaddr []interface{} `json:"srcaddr,omitempty"`
-	srcaddr_lookup []*Object /* contains pointer to objets */
 	dstaddr []string /* original names in conf */
 	Dstaddr []interface{} `json:"dstaddr,omitempty"`
-	dstaddr_lookup []*Object /* contains pointer to objets */
 	service []string
-	service_lookup []*Service
 	Service []interface{} `json:"service,omitempty"`
 	Groups []string `json:"groups,omitempty"`
 	Schedule string `json:"schedule,omitempty"`
@@ -275,9 +272,19 @@ func index_cidr(tree *radix.Radix, network string, i interface{})(*net.IPNet, er
 	var ipnet *net.IPNet
 	var err error
 
-	_, ipnet, err = net.ParseCIDR(network)
-	if err != nil {
-		return nil, err
+	if strings.Contains(network, "/") {
+		_, ipnet, err = net.ParseCIDR(network)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ipnet = &net.IPNet{
+			IP: net.ParseIP(network),
+			Mask: net.CIDRMask(32, 32),
+		}
+		if ipnet.IP == nil {
+			return nil, fmt.Errorf("Can't convert %q to IP", network)
+		}
 	}
 	index_network_cidr(tree, ipnet, i)
 	return ipnet, nil
@@ -328,9 +335,7 @@ func resolve_links(index *Index)(error) {
 	var g *Group
 	var g2 *Group
 	var o *Object
-	var objects []*Object
 	var p *Policy
-	var ss []*Service
 	var s *Service
 	var sg *ServiceGroup
 	var in_members []string
@@ -338,10 +343,6 @@ func resolve_links(index *Index)(error) {
 	var name string
 	var err error
 	var i interface{}
-	var port int
-	var prange []int
-	var msz int
-	var ipnet *net.IPNet
 
 	/* Expand group including groups. check if object reference is group.
 	 * If the object is group, group member are added in a queue and checked
@@ -408,12 +409,6 @@ func resolve_links(index *Index)(error) {
 	/* Resolve policy references */
 	for _, p = range index.Policy_list {
 		for _, name = range p.srcaddr {
-			/* source address to list of objects */
-			objects = lookup_object(index, name)
-			if objects == nil {
-				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
-			}
-			p.srcaddr_lookup = append(p.srcaddr_lookup, objects...)
 			/* source adress to object or group */
 			i = lookup_real(index, name)
 			if i == nil {
@@ -422,12 +417,6 @@ func resolve_links(index *Index)(error) {
 			p.Srcaddr = append(p.Srcaddr, i)
 		}
 		for _, name = range p.dstaddr {
-			/* destination address to list of objects */
-			objects = lookup_object(index, name)
-			if objects == nil {
-				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
-			}
-			p.dstaddr_lookup = append(p.dstaddr_lookup, objects...)
 			/* destination adress to object or group */
 			i = lookup_real(index, name)
 			if i == nil {
@@ -436,12 +425,6 @@ func resolve_links(index *Index)(error) {
 			p.Dstaddr = append(p.Dstaddr, i)
 		}
 		for _, name = range p.service {
-			/* service name to expanded list of service */
-			ss = lookup_service(index, name)
-			if ss == nil {
-				return fmt.Errorf("Cannot lookup object %q", name)
-			}
-			p.service_lookup = append(p.service_lookup, ss...)
 			/* service name to service or service group */
 			i = lookup_service_real(index, name)
 			if i == nil {
@@ -449,9 +432,6 @@ func resolve_links(index *Index)(error) {
 			}
 			p.Service = append(p.Service, i)
 		}
-
-		/* Remove duplicates */
-		p.service_lookup = removeDuplicate(p.service_lookup)
 	}
 
 	/* index policy by destination network, by source network and by service */
@@ -460,69 +440,22 @@ func resolve_links(index *Index)(error) {
 		/* Index by rule */
 		index.Policy_by_ruleid_index[p.Id] = p
 
-		for _, o = range p.srcaddr_lookup {
-			if o.Network != "" {
-				ipnet, err = index_cidr(index.Source_tree, o.Network, p)
-				if err != nil {
-					return fmt.Errorf("Error indexing CIDR %q for object %q in vdom %q: %s", o.Network, o.Name, index.Vdom, err.Error())
-				}
-				msz, _ = ipnet.Mask.Size()
-				index.Source_mask_index[msz] = appendNoDup(index.Source_mask_index[msz], p)
-			}
-			if o.Range_start != "" && o.Range_end != "" {
-				err = index_range(index.Source_tree, o.Range_start, o.Range_end, p)
-				if err != nil {
-					return fmt.Errorf("Error indexing ip-range object %q in vdom %q: %s", o.Name, index.Vdom, err.Error())
-				}
+		for _, i = range p.Srcaddr {
+			err = index_by_network(index.Vdom, index.Source_tree, index.Source_mask_index, i, p)
+			if err != nil {
+				return err
 			}
 		}
-		for _, o = range p.dstaddr_lookup {
-			if o.Network != "" {
-				ipnet, err = index_cidr(index.Target_tree, o.Network, p)
-				if err != nil {
-					return fmt.Errorf("Error indexing CIDR %q for object %q in vdom %q: %s", o.Network, o.Name, index.Vdom, err.Error())
-				}
-				msz, _ = ipnet.Mask.Size()
-				index.Target_mask_index[msz] = appendNoDup(index.Target_mask_index[msz], p)
-			}
-			if o.Range_start != "" && o.Range_end != "" {
-				err = index_range(index.Target_tree, o.Range_start, o.Range_end, p)
-				if err != nil {
-					return fmt.Errorf("Error indexing ip-range object %q in vdom %q: %s", o.Name, index.Vdom, err.Error())
-				}
+		for _, i = range p.Dstaddr {
+			err = index_by_network(index.Vdom, index.Target_tree, index.Target_mask_index, i, p)
+			if err != nil {
+				return err
 			}
 		}
-		for _, s = range p.service_lookup {
-			index.Service_name_index[s.Name] = appendNoDup(index.Service_name_index[s.Name], p)
-			p.service_lookup = removeDuplicate(p.service_lookup)
-			index.Service_proto_index[s.Protocol] = appendNoDup(index.Service_proto_index[s.Protocol], p)
-			for _, i = range s.Tcp_portrange {
-				port, ok = i.(int)
-				if ok {
-					index.Service_tcp_index[port] = appendNoDup(index.Service_tcp_index[port], p)
-				} else {
-					prange, ok = i.([]int)
-					if !ok {
-						panic(fmt.Sprintf("expected value on interface{} are only 'int' or '[]int', got %T", i))
-					}
-					for port = prange[0]; port <= prange[1]; port++ {
-						index.Service_tcp_index[port] = appendNoDup(index.Service_tcp_index[port], p)
-					}
-				}
-			}
-			for _, i = range s.Udp_portrange {
-				port, ok = i.(int)
-				if ok {
-					index.Service_udp_index[port] = appendNoDup(index.Service_udp_index[port], p)
-				} else {
-					prange, ok = i.([]int)
-					if !ok {
-						panic(fmt.Sprintf("expected value on interface{} are only 'int' or '[]int', got %T", i))
-					}
-					for port = prange[0]; port <= prange[1]; port++ {
-						index.Service_udp_index[port] = appendNoDup(index.Service_udp_index[port], p)
-					}
-				}
+		for _, i = range p.Service {
+			err = index_service(index, i, p)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -544,6 +477,127 @@ func resolve_links(index *Index)(error) {
 	}
 
 	return nil
+}
+
+func index_service(index *Index, i interface{}, p *Policy)(error) {
+	var s *Service
+	var sg *ServiceGroup
+	var ok bool
+	var port int
+	var prange []int
+	var err error
+
+	sg, ok = i.(*ServiceGroup)
+	if ok {
+		for _, i = range sg.Member {
+			err = index_service(index, i, p)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	s, ok = i.(*Service)
+	if ok {
+		index.Service_name_index[s.Name] = appendNoDup(index.Service_name_index[s.Name], p)
+		index.Service_proto_index[s.Protocol] = appendNoDup(index.Service_proto_index[s.Protocol], p)
+		for _, i = range s.Tcp_portrange {
+			port, ok = i.(int)
+			if ok {
+				index.Service_tcp_index[port] = appendNoDup(index.Service_tcp_index[port], p)
+			} else {
+				prange, ok = i.([]int)
+				if !ok {
+					panic(fmt.Sprintf("expected value on interface{} are only 'int' or '[]int', got %T", i))
+				}
+				for port = prange[0]; port <= prange[1]; port++ {
+					index.Service_tcp_index[port] = appendNoDup(index.Service_tcp_index[port], p)
+				}
+			}
+		}
+		for _, i = range s.Udp_portrange {
+			port, ok = i.(int)
+			if ok {
+				index.Service_udp_index[port] = appendNoDup(index.Service_udp_index[port], p)
+			} else {
+				prange, ok = i.([]int)
+				if !ok {
+					panic(fmt.Sprintf("expected value on interface{} are only 'int' or '[]int', got %T", i))
+				}
+				for port = prange[0]; port <= prange[1]; port++ {
+					index.Service_udp_index[port] = appendNoDup(index.Service_udp_index[port], p)
+				}
+			}
+		}
+		return nil
+	}
+
+	panic(fmt.Sprintf("Can't index service of type %t", i))
+}
+
+func index_by_network(vdom string, root *radix.Radix, ports map[int][]*Policy, i interface{}, p *Policy)(error) {
+	var o *Object
+	var v *Vip
+	var g *Group
+	var new_i interface{}
+	var ok bool
+	var ipnet *net.IPNet
+	var msz int
+	var err error
+
+	o, ok = i.(*Object)
+	if ok {
+		if o.Network != "" {
+			ipnet, err = index_cidr(root, o.Network, p)
+			if err != nil {
+				return fmt.Errorf("Error indexing CIDR %q for network object %q in vdom %q: %s", o.Network, o.Name, vdom, err.Error())
+			}
+			msz, _ = ipnet.Mask.Size()
+			ports[msz] = appendNoDup(ports[msz], p)
+		}
+		if o.Range_start != "" && o.Range_end != "" {
+			err = index_range(root, o.Range_start, o.Range_end, p)
+			if err != nil {
+				return fmt.Errorf("Error indexing ip-range object %q in vdom %q: %s", o.Name, vdom, err.Error())
+			}
+		}
+		return nil
+	}
+
+	v, ok = i.(*Vip)
+	if ok {
+		if v.Extip != "" {
+			ipnet, err = index_cidr(root, v.Extip, p)
+			if err != nil {
+				return fmt.Errorf("Error indexing CIDR %q for vip extip %q in vdom %q: %s", v.Extip, v.Name, vdom, err.Error())
+			}
+			msz, _ = ipnet.Mask.Size()
+			ports[msz] = appendNoDup(ports[msz], p)
+		}
+		if v.Mappedip != "" {
+			ipnet, err = index_cidr(root, v.Mappedip, p)
+			if err != nil {
+				return fmt.Errorf("Error indexing CIDR %q for vip mappedip %q in vdom %q: %s", v.Mappedip, v.Name, vdom, err.Error())
+			}
+			msz, _ = ipnet.Mask.Size()
+			ports[msz] = appendNoDup(ports[msz], p)
+		}
+		return nil
+	}
+
+	g, ok = i.(*Group)
+	if ok {
+		for _, new_i = range g.Member {
+			err = index_by_network(vdom, root, ports, new_i, p)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	panic(fmt.Sprintf("Can't index source or target object of type %t", i))
 }
 
 func list_policy_by_target(index *Index, ipnet *net.IPNet)([]*Policy) {

@@ -41,6 +41,9 @@ func main() {
 	var vdomlist bool
 	var rulesid string
 	var rule int
+	var object bool
+	var o *Object
+	var objects []*Object
 
 	flag.StringVar(&file,     "config",     "",    "Expect config file")
 	flag.StringVar(&vdom,     "vdom",       "",    "Perform requests in this vdom")
@@ -55,6 +58,7 @@ func main() {
 	flag.StringVar(&search,   "search",     "",    "List all policies containing the search string in name, comments, adresses or services")
 	flag.StringVar(&searchi,  "searchi",    "",    "Same than search but case insensitive")
 	flag.StringVar(&rulesid,  "rules-id",   "",    "Filter comma separated list of rules id")
+	flag.BoolVar(&object,     "object",     false, "Display all objects")
 	flag.Parse()
 
 	if file == "" {
@@ -107,9 +111,37 @@ func main() {
 	}
 
 	/* Check we have a vdom to search */
-	if (used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "") && index == nil {
+	if (object || used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "") && index == nil {
 		fmt.Fprintf(os.Stderr, "must precise vdom with this request. available vdom are: %s\n", strings.Join(Vdom_list, ", "))
 		os.Exit(1)
+	}
+
+	if object {
+
+		/* List objects */
+		for _, o = range index.Object_by_name {
+			objects = append(objects, o)
+		}
+
+		/* Sort objects */
+		sort.Slice(objects, func(i, j int)(bool) {
+			return objects[i].Name < objects[j].Name
+		})
+
+		/* Display data */
+		data, err = json.MarshalIndent(objects, "", "    ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+		_, err = os.Stdout.Write(data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+
+		/* End of commands */
+		os.Exit(0)
 	}
 
 	if used_pro {

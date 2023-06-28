@@ -13,14 +13,22 @@ type FG struct {
 	current_vdom string
 }
 
+/* check keyword length */
+func kwsl(kws []string, l int, line int)(error) {
+	if len(kws) < l {
+		return fmt.Errorf("keyword %q expect more keyword at line %d", strings.Join(kws, " "), line)
+	}
+	return nil
+}
+
 /* Eat all edit  section */
 func (fg *FG)EditNext()(error) {
-	var text string
+	var kws []string
 	var err error
 
 	for {
-		text, _, err = fg.s.Next(); if err != nil { return err }
-		switch text {
+		kws, _, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "edit":
 			err = fg.EditNext()
 			if err != nil {
@@ -39,12 +47,12 @@ func (fg *FG)EditNext()(error) {
 
 /* used to jump sections read all token until "end" */
 func (fg *FG)ConfigEnd()(error) {
-	var text string
+	var kws []string
 	var err error
 
 	for {
-		text, _, err = fg.s.Next(); if err != nil { return err }
-		switch text {
+		kws, _, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "edit":
 			err = fg.EditNext()
 			if err != nil {
@@ -65,40 +73,26 @@ func (fg *FG)ConfigEnd()(error) {
  * Process keywords until end
  */
 func (fg *FG)EditFirewallServiceGroup(s *ServiceGroup)(error) {
-	var text string
+	var kws []string
+	var line int
 	var err error
-	var isname bool
-	var do_ignore bool
 
 	for {
-
-		/* next word in stream */
-		text, _, err = fg.s.Next(); if err != nil { return err }
-
-		switch text {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "set":
-
-			text, _, err = fg.s.Next(); if err != nil { return err }
-			switch text {
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
 			case "member":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if !isname {
-						fg.s.Push(text, isname)
-						break
-					}
-					s.member = append(s.member, text)
-				}
-			/* don't care */
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				s.member = kws[2:]
 			default:
-				return fmt.Errorf("Unexpected word %q at line %d", text, fg.s.line)
+				return fmt.Errorf("Unexpected word %q at line %d", kws[1], line)
 			}
-
 		case "next":
-			if do_ignore {
-				return ignore
-			}
 			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -107,7 +101,8 @@ func (fg *FG)EditFirewallServiceGroup(s *ServiceGroup)(error) {
  * list of edit section which define objects
  */
 func (fg *FG)ConfigFirewallServiceGroup()(error) {
-	var kw string
+	var kws []string
+	var line int
 	var err error
 	var s *ServiceGroup
 	var index *Index
@@ -115,16 +110,16 @@ func (fg *FG)ConfigFirewallServiceGroup()(error) {
 	for {
 
 		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
 
 		/* Process keyword */
-		switch kw {
+		switch kws[0] {
 		case "edit":
 
 			/* Expect id of Object */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
+			err = kwsl(kws, 2, line); if err != nil { return err }
 			s = &ServiceGroup{}
-			s.Name = kw
+			s.Name = kws[1]
 
 			/* Decode object properties */
 			err = fg.EditFirewallServiceGroup(s)
@@ -140,7 +135,7 @@ func (fg *FG)ConfigFirewallServiceGroup()(error) {
 			return nil
 
 		default:
-			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kw, fg.s.line)
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -149,62 +144,54 @@ func (fg *FG)ConfigFirewallServiceGroup()(error) {
  * Process keywords until end
  */
 func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
-	var text string
-	var text2 string
+	var kws []string
+	var line int
 	var port string
 	var err error
-	var isname bool
-	var do_ignore bool
 	var v1 int
 	var v2 int
 	var w []string
 
 	for {
-
-		/* next word in stream */
-		text, _, err = fg.s.Next(); if err != nil { return err }
-
-		switch text {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "set":
-
-			text, _, err = fg.s.Next(); if err != nil { return err }
-			switch text {
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
 			case "comment":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				s.Comment = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				s.Comment = kws[2]
 			case "category":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				s.Category = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				s.Category = kws[2]
 			case "protocol":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				s.Protocol = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				s.Protocol = kws[2]
 			case "protocol-number":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				s.Protocol_number, err = strconv.Atoi(text)
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				s.Protocol_number, err = strconv.Atoi(kws[2])
 				if err != nil {
-					return fmt.Errorf("Can't decode protocol-number %q at line %d", text, fg.s.line)
+					return fmt.Errorf("Can't decode protocol-number %q at line %d", kws[2], line)
 				}
-			case "tcp-portrange", "udp-portrange":
-				to_break: for {
-					text2, _, err = fg.s.Next(); if err != nil { return err }
-					for _, port = range strings.Split(text2, ":") {
+			case "tcp-portrange",
+			     "udp-portrange":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				for _, port = range kws[2:] {
+					for _, port = range strings.Split(port, ":") {
 						if strings.Contains(port, "-") {
 							w = strings.Split(port, "-")
 							if len(w) != 2 {
-								fg.s.Push(port, isname)
-								break to_break
+								return fmt.Errorf("Can't decode port-range %q at line %d", port, line)
 							}
 							v1, err = strconv.Atoi(w[0])
 							if err != nil {
-								fg.s.Push(port, isname)
-								break to_break
+								return fmt.Errorf("Can't decode port %q at line %d", w[0], line)
 							}
 							v2, err = strconv.Atoi(w[1])
 							if err != nil {
-								fg.s.Push(port, isname)
-								break to_break
+								return fmt.Errorf("Can't decode port %q at line %d", w[1], line)
 							}
-							if text == "tcp-portrange" {
+							if kws[1] == "tcp-portrange" {
 								s.Tcp_portrange = append(s.Tcp_portrange, []int{v1,v2})
 							} else {
 								s.Udp_portrange = append(s.Udp_portrange, []int{v1,v2})
@@ -212,10 +199,9 @@ func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
 						} else {
 							v1, err = strconv.Atoi(port)
 							if err != nil {
-								fg.s.Push(port, isname)
-								break to_break
+								return fmt.Errorf("Can't decode port %q at line %d", port, line)
 							}
-							if text == "tcp-portrange" {
+							if kws[1] == "tcp-portrange" {
 								s.Tcp_portrange = append(s.Tcp_portrange, v1)
 							} else {
 								s.Udp_portrange = append(s.Udp_portrange, v1)
@@ -223,21 +209,19 @@ func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
 						}
 					}
 				}
-			/* don't care */
-			case "visibility", "icmptype", "proxy":
-				text, isname, err = fg.s.Next(); if err != nil { return err }
+			case "visibility",
+			     "icmptype",
+			     "proxy":
+				/* don't care */
 			default:
-				return fmt.Errorf("Unexpected word %q at line %d", text, fg.s.line)
+				return fmt.Errorf("Unexpected word %q at line %d", kws[1], line)
 			}
-
 		case "unset":
-			text, isname, err = fg.s.Next(); if err != nil { return err }
-			
+			/* don't care */
 		case "next":
-			if do_ignore {
-				return ignore
-			}
 			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -246,24 +230,25 @@ func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
  * list of edit section which define objects
  */
 func (fg *FG)ConfigFirewallServiceCustom()(error) {
-	var kw string
+	var kws []string
+	var line int
 	var err error
-	var s *Service 
+	var s *Service
 	var index *Index
 
 	for {
 
 		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
 
 		/* Process keyword */
-		switch kw {
+		switch kws[0] {
 		case "edit":
 
 			/* Expect id of Object */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
+			err = kwsl(kws, 2, line); if err != nil { return err }
 			s = &Service{}
-			s.Name = kw
+			s.Name = kws[1]
 
 			/* Decode object properties */
 			err = fg.EditFirewallServiceCustom(s)
@@ -294,7 +279,7 @@ func (fg *FG)ConfigFirewallServiceCustom()(error) {
 			return nil
 
 		default:
-			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kw, fg.s.line)
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -303,49 +288,34 @@ func (fg *FG)ConfigFirewallServiceCustom()(error) {
  * Process keywords until end
  */
 func (fg *FG)EditFirewallAddgrp(g *Group)(error) {
-	var text string
+	var kws []string
 	var err error
-	var isname bool
-	var do_ignore bool
+	var line int
 
 	for {
-
-		/* next word in stream */
-		text, _, err = fg.s.Next(); if err != nil { return err }
-
-		switch text {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "set":
-
-			text, _, err = fg.s.Next(); if err != nil { return err }
-			switch text {
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
 			case "uuid":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				g.Uuid = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				g.Uuid = kws[2]
 			case "comment":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				g.Comment = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				g.Comment = kws[2]
 			case "member":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if isname {
-						g.member = append(g.member, text)
-					} else {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
-			/* don't care */
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				g.member = kws[2:]
 			case "allow-routing":
-				text, _, err = fg.s.Next(); if err != nil { return err }
+				/* don't care */
 			default:
-				return fmt.Errorf("Unexpected word %q at line %d", text, fg.s.line)
+				return fmt.Errorf("Unexpected word %q at line %d", kws[1], line)
 			}
-
 		case "next":
-			if do_ignore {
-				return ignore
-			}
 			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -354,24 +324,21 @@ func (fg *FG)EditFirewallAddgrp(g *Group)(error) {
  * list of edit section which define objects
  */
 func (fg *FG)ConfigFirewallAddgrp()(error) {
-	var kw string
+	var kws []string
+	var line int
 	var err error
 	var g *Group
 	var index *Index
 
 	for {
-
-		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
-
-		/* Process keyword */
-		switch kw {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "edit":
 
 			/* Expect id of Object */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
+			err = kwsl(kws, 2, line); if err != nil { return err }
 			g = &Group{}
-			g.Name = kw
+			g.Name = kws[1]
 
 			/* Decode object properties */
 			err = fg.EditFirewallAddgrp(g)
@@ -387,7 +354,7 @@ func (fg *FG)ConfigFirewallAddgrp()(error) {
 			return nil
 
 		default:
-			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kw, fg.s.line)
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -396,91 +363,58 @@ func (fg *FG)ConfigFirewallAddgrp()(error) {
  * Process keywords until end
  */
 func (fg *FG)EditFirewallPolicy(p *Policy)(error) {
-	var text string
+	var kws []string
 	var err error
-	var isname bool
 	var do_ignore bool
+	var line int
 
 	for {
-
-		/* next word in stream */
-		text, _, err = fg.s.Next(); if err != nil { return err }
-
-		switch text {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "set":
-
-			text, _, err = fg.s.Next(); if err != nil { return err }
-			switch text {
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
 			case "uuid":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Uuid = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Uuid = kws[2]
 			case "comments":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Comments = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Comments = kws[2]
 			case "name":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Name = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Name = kws[2]
 			case "srcintf":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Srcintf = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Srcintf = kws[2]
 			case "dstintf":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Dstintf = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Dstintf = kws[2]
 			case "action":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Action = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Action = kws[2]
 			case "schedule":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Schedule = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Schedule = kws[2]
 			case "logtraffic":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				p.Logtraffic = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Logtraffic = kws[2]
 			case "srcaddr":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if isname {
-						p.srcaddr = append(p.srcaddr, text)
-					} else {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.srcaddr = kws[2:]
 			case "dstaddr":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if isname {
-						p.dstaddr = append(p.dstaddr, text)
-					} else {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.dstaddr = kws[2:]
 			case "service":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if isname {
-						p.service = append(p.service, text)
-					} else {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.service = kws[2:]
 			case "groups":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if isname {
-						p.Groups = append(p.Groups, text)
-					} else {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				p.Groups = kws[2:]
 			case "status":
-				text, isname, err = fg.s.Next(); if err != nil { return err }
-				if text == "disable" {
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				if kws[2] == "disable" {
 					do_ignore = true
 				}
-			/* don't care */
 			case "ips-sensor",
 			     "ippool",
 			     "poolname",
@@ -490,26 +424,20 @@ func (fg *FG)EditFirewallPolicy(p *Policy)(error) {
 			     "profile-protocol-options",
 			     "webfilter-profile",
 			     "utm-status",
-			     "internet-service":
-				text, isname, err = fg.s.Next(); if err != nil { return err }
-			case "internet-service-name",
+			     "internet-service",
+			     "internet-service-name",
 			     "users":
-				for {
-					text, isname, err = fg.s.Next(); if err != nil { return err }
-					if !isname {
-						fg.s.Push(text, isname)
-						break
-					}
-				}
+				/* don't care */
 			default:
-				return fmt.Errorf("Unexpected word %q at line %d", text, fg.s.line)
+				return fmt.Errorf("Unexpected word %q at line %d", kws[1], line)
 			}
-
 		case "next":
 			if do_ignore {
 				return ignore
 			}
 			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -518,26 +446,27 @@ func (fg *FG)EditFirewallPolicy(p *Policy)(error) {
  * list of edit section which define objects
  */
 func (fg *FG)ConfigFirewallPolicy()(error) {
-	var kw string
+	var kws []string
 	var err error
 	var p *Policy
 	var index *Index
+	var line int
 
 	for {
 
 		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
+		kws, line, err = fg.s.NextLine(); if err != nil {	return err }
 
 		/* Process keyword */
-		switch kw {
+		switch kws[0] {
 		case "edit":
 
 			/* Expect id of Object */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
+			err = kwsl(kws, 2, line); if err != nil { return err }
 			p = &Policy{}
-			p.Id, err = strconv.Atoi(kw)
+			p.Id, err = strconv.Atoi(kws[1])
 			if err != nil {
-				return fmt.Errorf("Can't decode policy id %q at line %d", kw, fg.s.line)
+				return fmt.Errorf("Can't decode policy id %q at line %d", kws[1], line)
 			}
 
 			/* Decode object properties */
@@ -561,7 +490,7 @@ func (fg *FG)ConfigFirewallPolicy()(error) {
 			return nil
 
 		default:
-			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kw, fg.s.line)
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -570,63 +499,58 @@ func (fg *FG)ConfigFirewallPolicy()(error) {
  * Process keywords until end
  */
 func (fg *FG)EditFirewallAddressObject(o *Object)(error) {
-	var text string
+	var kws []string
 	var err error
 	var ip string
 	var mask string
 	var i net.IP
 	var m net.IP
 	var n net.IPNet
+	var line int
 
 	for {
-
-		/* next word in stream */
-		text, _, err = fg.s.Next(); if err != nil { return err }
-
-		switch text {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
 		case "set":
-
-			text, _, err = fg.s.Next(); if err != nil { return err }
-			switch text {
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
 			case "uuid":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				o.Uuid = text
-			case "type":
-				text, _, err = fg.s.Next(); if err != nil { return err }
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				o.Uuid = kws[2]
 			case "start-ip":
-				ip, _, err = fg.s.Next(); if err != nil { return err }
-				i = net.ParseIP(ip)
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				i = net.ParseIP(kws[2])
 				if i == nil {
-					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, fg.s.line)
+					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, line)
 				}
 				o.Range_start = i.String()
 			case "end-ip":
-				ip, _, err = fg.s.Next(); if err != nil { return err }
-				i = net.ParseIP(ip)
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				i = net.ParseIP(kws[2])
 				if i == nil {
-					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, fg.s.line)
+					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, line)
 				}
 				o.Range_end = i.String()
 			case "fqdn":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				o.Fqdn = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				o.Fqdn = kws[2]
 			case "macaddr":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				o.Macaddr = text
-			case "sub-type",
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				o.Macaddr = kws[2]
+			case "type",
+			     "sub-type",
 			     "associated-interface",
 			     "allow-routing":
-				text, _, err = fg.s.Next(); if err != nil { return err }
+				/* dont care */
 			case "subnet":
-				ip, _, err = fg.s.Next(); if err != nil { return err }
-				mask, _, err = fg.s.Next(); if err != nil { return err }
-				i = net.ParseIP(ip)
+				err = kwsl(kws, 4, line); if err != nil { return err }
+				i = net.ParseIP(kws[2])
 				if i == nil {
-					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, fg.s.line)
+					return fmt.Errorf("Can't decode ip network: %q at line %d", ip, line)
 				}
-				m = net.ParseIP(mask)
+				m = net.ParseIP(kws[3])
 				if m == nil {
-					return fmt.Errorf("Can't decode mask: %q at line %d", mask, fg.s.line)
+					return fmt.Errorf("Can't decode mask: %q at line %d", mask, line)
 				}
 				n = net.IPNet{
 					IP: i,
@@ -634,14 +558,15 @@ func (fg *FG)EditFirewallAddressObject(o *Object)(error) {
 				}
 				o.Network = n.String()
 			case "comment":
-				text, _, err = fg.s.Next(); if err != nil { return err }
-				o.Comment = text
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				o.Comment = kws[2]
 			default:
-				return fmt.Errorf("Unexpected word %q at line %d", text, fg.s.line)
+				return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 			}
-
 		case "next":
 			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
 		}
 	}
 }
@@ -650,24 +575,25 @@ func (fg *FG)EditFirewallAddressObject(o *Object)(error) {
  * list of edit section which define objects
  */
 func (fg *FG)ConfigFirewallAddress()(error) {
-	var kw string
+	var kws []string
 	var err error
 	var o *Object
 	var index *Index
+	var line int
 
 	for {
 
 		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
 
 		/* Process keyword */
-		switch kw {
+		switch kws[0] {
 		case "edit":
 
 			/* Expect name of Object */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
+			err = kwsl(kws, 2, line); if err != nil { return err }
 			o = &Object{}
-			o.Name = kw
+			o.Name = kws[1]
 
 			/* Decode object properties */
 			err = fg.EditFirewallAddressObject(o)
@@ -683,28 +609,29 @@ func (fg *FG)ConfigFirewallAddress()(error) {
 			return nil
 
 		default:
-			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kw, fg.s.line)
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
 		}
 	}
 }
 
 /* Process VDOM section. Expect list of edit */
 func (fg *FG)ConfigVdom()(error) {
-	var kw string
+	var kws []string
+	var line int
 	var err error
 
 	for {
 
 		/* read next word */
-		kw, _, err = fg.s.Next(); if err != nil {	return err }
+		kws, line, err = fg.s.NextLine(); if err != nil {	return err }
 
 		/* Process keyword */
-		switch kw {
+		switch kws[0] {
 		case "edit":
 
 			/* Expect name of VDOM */
-			kw, _, err = fg.s.Next(); if err != nil { return err }
-			fg.current_vdom = kw
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			fg.current_vdom = kws[1]
 
 			/* Expect list of config */
 			err = fg.ConfigList(false)
@@ -720,78 +647,15 @@ func (fg *FG)ConfigVdom()(error) {
 }
 
 /* Process config section */
-func (fg *FG)Config()(error) {
-	var kind string
-	var subkind string
-	var subsubkind string
-	var err error
-
-	/* next word is kind of section */
-	kind, _, err = fg.s.Next(); if err != nil { return err }
-
-	/* Handle known config section */
-	switch kind {
-
-	/* config vdom */
-	case "vdom":
-		return fg.ConfigVdom()
-
-	/* config firewall */
-	case "firewall":
-		subkind, _, err = fg.s.Next(); if err != nil { return err }
-		switch subkind {
-
-		/* config firewall address */
-		case "address":
-			return fg.ConfigFirewallAddress()
-
-		/* config firewall policy */
-		case "policy":
-			return fg.ConfigFirewallPolicy()
-
-		/* config firewall addrgrp */
-		case "addrgrp":
-			return fg.ConfigFirewallAddgrp()
-
-		/* config firewall service */
-		case "service":
-			subsubkind, _, err = fg.s.Next(); if err != nil { return err }
-			switch subsubkind {
-
-			/* config firewall service custom */
-			case "custom":
-				return fg.ConfigFirewallServiceCustom()
-
-			/* config firewall service custom */
-			case "group":
-				return fg.ConfigFirewallServiceGroup()
-
-			/* fallback */
-			default:
-				return fg.ConfigEnd()
-			}
-
-		/* fallback */
-		default:
-			return fg.ConfigEnd()
-		}
-
-	/* fallback */
-	default:
-		return fg.ConfigEnd()
-	}
-}
-
-/* Process config section. Expect list of "section" */
 func (fg *FG)ConfigList(alloweof bool)(error) {
-	var kw string
 	var err error
-	var isname bool
+	var line int
+	var kws []string
 
 	for {
 
-		/* read next word */
-		kw, isname, err = fg.s.Next()
+		/* read config line */
+		kws, line, err = fg.s.NextLine()
 		if err != nil {
 			if err == io.EOF && alloweof {
 				return nil
@@ -800,15 +664,57 @@ func (fg *FG)ConfigList(alloweof bool)(error) {
 		}
 
 		/* we expect config section */
-		if kw != "config" {
-			fg.s.Push(kw, isname)
+		if kws[0] != "config" {
+			fg.s.PushLine(kws)
 			return nil
 		}
 
-		/* Process config section  */
-		err = fg.Config()
-		if err != nil {
-			return err
+		/* At least one word */
+		if len(kws) < 2 {
+			return fmt.Errorf("Expect config kind at line %d", line)
+		}
+
+		/* Handle known config section */
+		switch kws[1] {
+
+		/* config vdom */
+		case "vdom": err = fg.ConfigVdom(); if err != nil { return err }
+
+		/* config firewall */
+		case "firewall":
+			err = kwsl(kws, 3, line); if err != nil { return err }
+			switch kws[2] {
+
+			/* config firewall address */
+			case "address": err = fg.ConfigFirewallAddress(); if err != nil { return err }
+
+			/* config firewall policy */
+			case "policy": err = fg.ConfigFirewallPolicy(); if err != nil { return err }
+
+			/* config firewall addrgrp */
+			case "addrgrp": err = fg.ConfigFirewallAddgrp(); if err != nil { return err }
+
+			/* config firewall service */
+			case "service":
+				err = kwsl(kws, 4, line); if err != nil { return err }
+				switch kws[3] {
+
+				/* config firewall service custom */
+				case "custom": err = fg.ConfigFirewallServiceCustom(); if err != nil { return err }
+
+				/* config firewall service custom */
+				case "group": fg.ConfigFirewallServiceGroup()
+
+				/* fallback */
+				default: fg.ConfigEnd()
+				}
+
+			/* fallback */
+			default: fg.ConfigEnd()
+			}
+
+		/* fallback */
+		default: fg.ConfigEnd()
 		}
 	}
 }

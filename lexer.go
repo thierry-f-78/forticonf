@@ -12,12 +12,7 @@ type Stream struct {
 	end bool
 	line int
 	word int
-	words []*Word /* lifo */
-}
-
-type Word struct {
-	Kw string
-	IsName bool
+	words []string /* lifo */
 }
 
 func StreamNew(file string)(*Stream, error) {
@@ -59,20 +54,20 @@ func (s *Stream)NeedMore()(error) {
 	return nil
 }
 
-func (s *Stream)Next()(string, bool, error) {
+func (s *Stream)Next()(string, error) {
 	var out string
 	var err error
 	var index int
 	var r rune
 	var ignore bool
 	var jump_line int
-	var word *Word
+	var word string
 
 	if len(s.words) > 0 {
 		word = s.words[len(s.words) - 1]
 		s.words = s.words[:len(s.words) - 1]
 		s.word++
-		return word.Kw, word.IsName, nil
+		return word, nil
 	}
 	
 	for {
@@ -80,19 +75,26 @@ func (s *Stream)Next()(string, bool, error) {
 		/* trim spaces */
 		s.s = strings.TrimLeftFunc(s.s, func(r rune)(bool) {
 			if r == '\n' {
-				s.line++
+				return false
 			}
 			return unicode.IsSpace(r)
 		}) 
 		if len(s.s) == 0 {
 			if s.end {
-				return "", false, io.EOF
+				return "", io.EOF
 			}
 			err = s.NeedMore()
 			if err != nil {
-				return "", false, err
+				return "", err
 			}
 			continue
+		}
+
+		/* Process jumpline */
+		if s.s[0] == '\n' {
+			s.line++
+			s.s = s.s[1:]
+			return "\n", nil
 		}
 
 		/* Ignore comments */
@@ -101,11 +103,11 @@ func (s *Stream)Next()(string, bool, error) {
 			if index == -1 {
 				if s.end {
 					s.s = ""
-					return "", false, io.EOF
+					return "", io.EOF
 				}
 				err = s.NeedMore()
 				if err != nil {
-					return "", false, err
+					return "", err
 				}
 				continue
 			}
@@ -149,11 +151,11 @@ func (s *Stream)Next()(string, bool, error) {
 			/* we reach end whithout '"', we need more data */
 			if r != '"' {
 				if s.end {
-					return "", false, fmt.Errorf("quote not closed at line %d", s.line)
+					return "", fmt.Errorf("quote not closed at line %d", s.line)
 				}
 				err = s.NeedMore()
 				if err != nil {
-					return "", false, err
+					return "", err
 				}
 				continue
 			}
@@ -164,7 +166,7 @@ func (s *Stream)Next()(string, bool, error) {
 			index++ /* final '"' compensation */
 			s.s = s.s[index:]
 			s.word++
-			return out, true, nil
+			return out, nil
 		}
 
 		/* Extract classic keyword */
@@ -176,25 +178,66 @@ func (s *Stream)Next()(string, bool, error) {
 				out = s.s
 				s.s = ""
 				s.word++
-				return out, false, nil
+				return out, nil
 			}
 			err = s.NeedMore()
 			if err != nil {
-				return "", false, err
+				return "", err
 			}
 			continue
 		}
 		out = s.s[:index]
 		s.s = s.s[index:]
 		s.word++
-		return out, false, nil
+		return out, nil
 	}
 }
 
-func (s *Stream)Push(kw string, isname bool)() {
+// Return always at least one word or error
+func (s *Stream)NextLine()([]string, int, error) {
+	var token string
+	var out []string
+	var err error
+	var line int
+
+	line = -1
+	for {
+		token, err = s.Next()
+		if err != nil {
+			/* if we encounter EOF with some word, return first the words */
+			if err == io.EOF {
+				if len(out) == 0 {
+					return nil, -1, err
+				} else {
+					return out, line, nil
+				}
+			}
+			return nil, -1, err
+		}
+		if line == -1 {
+			line = s.line
+		}
+		if token == "\n" {
+			/* ignore empty lines */
+			if len(out) == 0 {
+				continue
+			}
+			return out, line, nil
+		}
+		out = append(out, token)
+	}
+}
+
+func (s *Stream)PushLine(kws []string) {
+	var i int
+
+	s.Push("\n") /* Assume eaten line ends */
+	for i = len(kws) - 1; i >= 0; i-- {
+		s.Push(kws[i])
+	}
+}
+
+func (s *Stream)Push(kw string)() {
 	s.word--
-	s.words = append(s.words, &Word{
-		Kw: kw,
-		IsName: isname,
-	})
+	s.words = append(s.words, kw)
 }

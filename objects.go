@@ -231,7 +231,7 @@ func read_conf(file string)(error) {
 	}
 
 	/* Expect end of file */
-	kw, _, err = fg.s.Next()
+	kw, err = fg.s.Next()
 	if err == nil {
 		return fmt.Errorf("Expect end of file, got %q", kw)
 	}
@@ -391,25 +391,43 @@ func resolve_links(index *Index)(error) {
 		for _, name = range p.srcaddr {
 			/* source address to list of objects */
 			objects = lookup_object(index, name)
+			if objects == nil {
+				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
+			}
 			p.srcaddr_lookup = append(p.srcaddr_lookup, objects...)
 			/* source adress to object or group */
 			i = lookup_real(index, name)
+			if i == nil {
+				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
+			}
 			p.Srcaddr = append(p.Srcaddr, i)
 		}
 		for _, name = range p.dstaddr {
 			/* destination address to list of objects */
 			objects = lookup_object(index, name)
+			if objects == nil {
+				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
+			}
 			p.dstaddr_lookup = append(p.dstaddr_lookup, objects...)
 			/* destination adress to object or group */
 			i = lookup_real(index, name)
+			if i == nil {
+				return fmt.Errorf("Cannot lookup object %q in policy %d", name, p.Id)
+			}
 			p.Dstaddr = append(p.Dstaddr, i)
 		}
 		for _, name = range p.service {
 			/* service name to expanded list of service */
 			ss = lookup_service(index, name)
+			if ss == nil {
+				return fmt.Errorf("Cannot lookup object %q", name)
+			}
 			p.service_lookup = append(p.service_lookup, ss...)
 			/* service name to service or service group */
 			i = lookup_service_real(index, name)
+			if i == nil {
+				return fmt.Errorf("Cannot lookup object %q", name)
+			}
 			p.Service = append(p.Service, i)
 		}
 

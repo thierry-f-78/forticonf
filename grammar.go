@@ -72,6 +72,102 @@ func (fg *FG)ConfigEnd()(error) {
 /* Process object configuration. There is a Edit section parser,
  * Process keywords until end
  */
+func (fg *FG)EditFirewallVip(v *Vip)(error) {
+	var kws []string
+	var err error
+	var line int
+
+	for {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
+		case "set":
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			switch kws[1] {
+			case "uuid":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Uuid = kws[2]
+			case "comment":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Comment = kws[2]
+			case "extip":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Extip = kws[2]
+			case "mappedip":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Mappedip = kws[2]
+			case "extintf":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Extintf = kws[2]
+			case "portforward":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Portforward = kws[2]
+			case "extport":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Extport, err = strconv.Atoi(kws[2])
+				if err != nil {
+					return fmt.Errorf("Can't decode number %q at line %d", kws[2], line)
+				}
+			case "mappedport":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Mappedport, err = strconv.Atoi(kws[2])
+				if err != nil {
+					return fmt.Errorf("Can't decode number %q at line %d", kws[2], line)
+				}
+			case "color":
+				/* con't care */
+			default:
+				return fmt.Errorf("Unexpected word %q at line %d", kws[1], line)
+			}
+		case "next":
+			return nil
+		default:
+			return fmt.Errorf("Unexpected word %q at line %d", kws[0], line)
+		}
+	}
+}
+
+/* Process "config firewall addgrp" section is a
+ * list of edit section which define objects
+ */
+func (fg *FG)ConfigFirewallVip()(error) {
+	var kws []string
+	var line int
+	var err error
+	var v *Vip
+	var index *Index
+
+	for {
+		kws, line, err = fg.s.NextLine(); if err != nil { return err }
+		switch kws[0] {
+		case "edit":
+
+			/* Expect id of Object */
+			err = kwsl(kws, 2, line); if err != nil { return err }
+			v = &Vip{}
+			v.Name = kws[1]
+
+			/* Decode object properties */
+			err = fg.EditFirewallVip(v)
+			if err != nil {
+				return err
+			}
+
+			/* Index object */
+			index = get_vdom(fg.current_vdom)
+			index.Vip_by_name[v.Name] = v
+
+		case "end":
+			return nil
+
+		default:
+			return fmt.Errorf("Expect \"edit\" or \"end\" keyword, got %q at line %d", kws[0], line)
+		}
+	}
+}
+
+/* Process object configuration. There is a Edit section parser,
+ * Process keywords until end
+ */
 func (fg *FG)EditFirewallServiceGroup(s *ServiceGroup)(error) {
 	var kws []string
 	var line int
@@ -693,6 +789,9 @@ func (fg *FG)ConfigList(alloweof bool)(error) {
 
 			/* config firewall addrgrp */
 			case "addrgrp": err = fg.ConfigFirewallAddgrp(); if err != nil { return err }
+
+			/* config firewall vip */
+			case "vip": err = fg.ConfigFirewallVip(); if err != nil { return err }
 
 			/* config firewall service */
 			case "service":

@@ -35,6 +35,18 @@ type Object struct {
 	Macaddr string `json:"macaddr,omitempty"`
 }
 
+type Vip struct {
+	Name string `json:"name,omitempty"`
+	Uuid string `json:"uuid,omitempty"`
+	Comment string `json:"comment,omitempty"`
+	Extip string `json:"extip,omitempty"`
+	Mappedip string `json:"mappedip,omitempty"`
+	Extintf string `json:"extintf,omitempty"`
+	Portforward string `json:"portforward,omitempty"`
+	Extport int `json:"extport,omitempty"`
+	Mappedport int `json:"mappedport,omitempty"`
+}
+
 type Policy struct {
 	Id int `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
@@ -72,6 +84,7 @@ type Index struct {
 	Group_by_name map[string]*Group `json:"group_by_name,omitempty"`
 	Service_by_name map[string]*Service `json:"service_by_name,omitempty"`
 	ServiceGroup_by_name map[string]*ServiceGroup `json:"servicegroup_by_name,omitempty"`
+	Vip_by_name map[string]*Vip `json:"vip_by_name,omitempty"`
 	Policy_list []*Policy `json:"policy_list,omitempty"`
 	Policy_by_ruleid_index map[int]*Policy
 	Target_tree *radix.Radix
@@ -127,6 +140,7 @@ func get_vdom(name string)(*Index) {
 			Group_by_name: make(map[string]*Group),
 			Service_by_name: make(map[string]*Service),
 			ServiceGroup_by_name: make(map[string]*ServiceGroup),
+			Vip_by_name: make(map[string]*Vip),
 			Policy_list: nil,
 			Policy_by_ruleid_index: make(map[int]*Policy),
 			Target_tree: radix.NewRadix(),
@@ -196,6 +210,7 @@ func lookup_real(index *Index, name string)(interface{}) {
 	var ok bool
 	var o *Object
 	var g *Group
+	var v *Vip
 
 	o, ok = index.Object_by_name[name]
 	if ok {
@@ -204,6 +219,10 @@ func lookup_real(index *Index, name string)(interface{}) {
 	g, ok = index.Group_by_name[name]
 	if ok {
 		return g
+	}
+	v, ok = index.Vip_by_name[name]
+	if ok {
+		return v
 	}
 	return nil
 }

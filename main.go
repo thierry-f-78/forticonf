@@ -42,8 +42,11 @@ func main() {
 	var rulesid string
 	var rule int
 	var object bool
+	var vip bool
 	var o *Object
 	var objects []*Object
+	var v *Vip
+	var vips []*Vip
 
 	flag.StringVar(&file,     "config",     "",    "Expect config file")
 	flag.StringVar(&vdom,     "vdom",       "",    "Perform requests in this vdom")
@@ -59,6 +62,7 @@ func main() {
 	flag.StringVar(&searchi,  "searchi",    "",    "Same than search but case insensitive")
 	flag.StringVar(&rulesid,  "rules-id",   "",    "Filter comma separated list of rules id")
 	flag.BoolVar(&object,     "object",     false, "Display all objects")
+	flag.BoolVar(&vip,        "vip",        false, "Display all vips")
 	flag.Parse()
 
 	if file == "" {
@@ -111,7 +115,7 @@ func main() {
 	}
 
 	/* Check we have a vdom to search */
-	if (object || used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "") && index == nil {
+	if (vip || object || used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "") && index == nil {
 		fmt.Fprintf(os.Stderr, "must precise vdom with this request. available vdom are: %s\n", strings.Join(Vdom_list, ", "))
 		os.Exit(1)
 	}
@@ -130,6 +134,34 @@ func main() {
 
 		/* Display data */
 		data, err = json.MarshalIndent(objects, "", "    ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+		_, err = os.Stdout.Write(data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+
+		/* End of commands */
+		os.Exit(0)
+	}
+
+	if vip {
+
+		/* List objects */
+		for _, v = range index.Vip_by_name {
+			vips = append(vips, v)
+		}
+
+		/* Sort objects */
+		sort.Slice(vips, func(i, j int)(bool) {
+			return vips[i].Name < vips[j].Name
+		})
+
+		/* Display data */
+		data, err = json.MarshalIndent(vips, "", "    ")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
 			os.Exit(1)

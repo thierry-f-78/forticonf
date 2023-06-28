@@ -742,6 +742,11 @@ func list_policy_by_search(index *Index, case_insensitive bool, word string)([]*
 					pols = append(pols, p)
 					continue browse_policies
 				}
+			case *Vip:
+				if search_vip(o, case_insensitive, s) {
+					pols = append(pols, p)
+					continue browse_policies
+				}
 			}
 		}
 		for _, i = range p.Dstaddr {
@@ -753,6 +758,11 @@ func list_policy_by_search(index *Index, case_insensitive bool, word string)([]*
 				}
 			case *Group:
 				if search_object_group(o, case_insensitive, s) {
+					pols = append(pols, p)
+					continue browse_policies
+				}
+			case *Vip:
+				if search_vip(o, case_insensitive, s) {
 					pols = append(pols, p)
 					continue browse_policies
 				}
@@ -890,6 +900,25 @@ func search_service_group(sg *ServiceGroup, case_insensitive bool, s string)(boo
 			if search_service_group(o, case_insensitive, s) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func search_vip(v *Vip, case_insensitive bool, s string)(bool) {
+	if case_insensitive {
+		if strings.Contains(strings.ToLower(v.Name), s) {
+			return true
+		}
+		if strings.Contains(strings.ToLower(v.Comment), s) {
+			return true
+		}
+	} else {
+		if strings.Contains(v.Name, s) {
+			return true
+		}
+		if strings.Contains(v.Comment, s) {
+			return true
 		}
 	}
 	return false

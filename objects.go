@@ -650,12 +650,28 @@ func list_policy_by_search(index *Index, case_insensitive bool, word string)([]*
 				pols = append(pols, p)
 				continue
 			}
+			if strings.Contains(strings.ToLower(p.Srcintf), s) {
+				pols = append(pols, p)
+				continue
+			}
+			if strings.Contains(strings.ToLower(p.Dstintf), s) {
+				pols = append(pols, p)
+				continue
+			}
 		} else {
 			if strings.Contains(p.Name, s) {
 				pols = append(pols, p)
 				continue
 			}
 			if strings.Contains(p.Comments, s) {
+				pols = append(pols, p)
+				continue
+			}
+			if strings.Contains(p.Srcintf, s) {
+				pols = append(pols, p)
+				continue
+			}
+			if strings.Contains(p.Dstintf, s) {
 				pols = append(pols, p)
 				continue
 			}

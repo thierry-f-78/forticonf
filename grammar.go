@@ -151,6 +151,7 @@ func (fg *FG)ConfigFirewallServiceGroup()(error) {
 func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
 	var text string
 	var text2 string
+	var port string
 	var err error
 	var isname bool
 	var do_ignore bool
@@ -184,39 +185,41 @@ func (fg *FG)EditFirewallServiceCustom(s *Service)(error) {
 					return fmt.Errorf("Can't decode protocol-number %q at line %d", text, fg.s.line)
 				}
 			case "tcp-portrange", "udp-portrange":
-				for {
-					text2, isname, err = fg.s.Next(); if err != nil { return err }
-					if strings.Contains(text2, "-") {
-						w = strings.Split(text2, "-")
-						if len(w) != 2 {
-							fg.s.Push(text2, isname)
-							break
-						}
-						v1, err = strconv.Atoi(w[0])
-						if err != nil {
-							fg.s.Push(text2, isname)
-							break
-						}
-						v2, err = strconv.Atoi(w[1])
-						if err != nil {
-							fg.s.Push(text2, isname)
-							break
-						}
-						if text == "tcp-portrange" {
-							s.Tcp_portrange = append(s.Tcp_portrange, []int{v1,v2})
+				to_break: for {
+					text2, _, err = fg.s.Next(); if err != nil { return err }
+					for _, port = range strings.Split(text2, ":") {
+						if strings.Contains(port, "-") {
+							w = strings.Split(port, "-")
+							if len(w) != 2 {
+								fg.s.Push(port, isname)
+								break to_break
+							}
+							v1, err = strconv.Atoi(w[0])
+							if err != nil {
+								fg.s.Push(port, isname)
+								break to_break
+							}
+							v2, err = strconv.Atoi(w[1])
+							if err != nil {
+								fg.s.Push(port, isname)
+								break to_break
+							}
+							if text == "tcp-portrange" {
+								s.Tcp_portrange = append(s.Tcp_portrange, []int{v1,v2})
+							} else {
+								s.Udp_portrange = append(s.Udp_portrange, []int{v1,v2})
+							}
 						} else {
-							s.Udp_portrange = append(s.Udp_portrange, []int{v1,v2})
-						}
-					} else {
-						v1, err = strconv.Atoi(text2)
-						if err != nil {
-							fg.s.Push(text2, isname)
-							break
-						}
-						if text == "tcp-portrange" {
-							s.Tcp_portrange = append(s.Tcp_portrange, v1)
-						} else {
-							s.Udp_portrange = append(s.Udp_portrange, v1)
+							v1, err = strconv.Atoi(port)
+							if err != nil {
+								fg.s.Push(port, isname)
+								break to_break
+							}
+							if text == "tcp-portrange" {
+								s.Tcp_portrange = append(s.Tcp_portrange, v1)
+							} else {
+								s.Udp_portrange = append(s.Udp_portrange, v1)
+							}
 						}
 					}
 				}

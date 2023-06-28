@@ -19,7 +19,7 @@ type Service struct {
 	Comment string `json:"comment,omitempty"`
 	Category string `json:"category,omitempty"`
 	Tcp_portrange []interface{} `json:"tcp_portrange,omitempty"` /* interface{} = int or []int */
-	Udp_portrange []interface{} `json:"udp_portrange,omitempty"` 
+	Udp_portrange []interface{} `json:"udp_portrange,omitempty"`
 	Protocol string `json:"protocol,omitempty"`
 	Protocol_number int `json:"protocol_number,omitempty"`
 }

@@ -52,8 +52,8 @@ func main() {
 	flag.StringVar(&udp_port, "udp",        "",    "Filter policies which allow access to this TCP port. This argument can take more than one port using comma as separator. Note this implies proto UDP")
 	flag.StringVar(&proto,    "proto",      "",    "Filter policies which allow access to this protocol. This argument can take more than one protocol using comma as separator.")
 	flag.BoolVar(&used_pro,   "used-proto", false, "List all protocols in use in the vdom")
-	flag.StringVar(&search,   "search",     "",    "List all objects containing the search string in name or comments")
-	flag.StringVar(&searchi,  "searchi",    "",    "same than search but case insensitive")
+	flag.StringVar(&search,   "search",     "",    "List all policies containing the search string in name, comments, adresses or services")
+	flag.StringVar(&searchi,  "searchi",    "",    "Same than search but case insensitive")
 	flag.StringVar(&rulesid,  "rules-id",   "",    "Filter comma separated list of rules id")
 	flag.Parse()
 

@@ -98,6 +98,9 @@ func (fg *FG)EditFirewallVip(v *Vip)(error) {
 			case "extintf":
 				err = kwsl(kws, 3, line); if err != nil { return err }
 				v.Extintf = kws[2]
+			case "protocol":
+				err = kwsl(kws, 3, line); if err != nil { return err }
+				v.Protocol = kws[2]
 			case "portforward":
 				err = kwsl(kws, 3, line); if err != nil { return err }
 				v.Portforward = kws[2]

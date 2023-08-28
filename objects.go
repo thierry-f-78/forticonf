@@ -45,6 +45,7 @@ type Vip struct {
 	Portforward string `json:"portforward,omitempty"`
 	Extport int `json:"extport,omitempty"`
 	Mappedport int `json:"mappedport,omitempty"`
+	Protocol string `json:"protocol"`
 }
 
 type Policy struct {

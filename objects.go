@@ -240,6 +240,7 @@ func read_conf(file string)(error) {
 
 	/* new grammar parser */
 	fg = &FG{s: s}
+	fg.current_vdom = "root"
 
 	/* Start grammar parser */
 	err = fg.ConfigList(true)

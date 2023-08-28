@@ -49,7 +49,7 @@ func main() {
 	var vips []*Vip
 
 	flag.StringVar(&file,     "config",     "",    "Expect config file")
-	flag.StringVar(&vdom,     "vdom",       "",    "Perform requests in this vdom")
+	flag.StringVar(&vdom,     "vdom",       "root","Perform requests in this vdom")
 	flag.BoolVar(&vdomlist,   "vdom-list",  false, "List avalaible VDOM")
 	flag.StringVar(&dest,     "dest",       "",    "Filter policies which allow access to this destination IP or network address. This argument can take more than one address using comma as separator.")
 	flag.StringVar(&src,      "src",        "",    "Filter policies which allow access to this source IP or network address. This argument can take more than one address using comma as separator.")

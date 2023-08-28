@@ -739,7 +739,7 @@ func (fg *FG)ConfigVdom()(error) {
 			}
 
 		case "end": /* end of config */
-			fg.current_vdom = ""
+			fg.current_vdom = "root"
 			return nil
 		}
 	}

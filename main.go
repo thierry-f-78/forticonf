@@ -47,6 +47,9 @@ func main() {
 	var objects []*Object
 	var v *Vip
 	var vips []*Vip
+	var svclist bool
+	var svc string
+	var svcs []string
 
 	flag.StringVar(&file,     "config",     "",    "Expect config file")
 	flag.StringVar(&vdom,     "vdom",       "root","Perform requests in this vdom")
@@ -63,6 +66,7 @@ func main() {
 	flag.StringVar(&rulesid,  "rules-id",   "",    "Filter comma separated list of rules id")
 	flag.BoolVar(&object,     "object",     false, "Display all objects")
 	flag.BoolVar(&vip,        "vip",        false, "Display all vips")
+	flag.BoolVar(&svclist,    "list-svc",   false, "Display all service used in a VDOM")
 	flag.Parse()
 
 	if file == "" {
@@ -112,6 +116,33 @@ func main() {
 			fmt.Fprintf(os.Stderr, "vdom %q doesn't exist. available vdom are: %s\n", vdom, strings.Join(Vdom_list, ", "))
 			os.Exit(1)
 		}
+	}
+
+	if svclist {
+		/* List objects */
+		for svc, _ = range index.Service_name_index {
+			svcs = append(svcs, svc)
+		}
+
+		/* Sort objects */
+		sort.Slice(svcs, func(i, j int)(bool) {
+			return svcs[i] < svcs[j]
+		})
+
+		/* Display data */
+		data, err = json.MarshalIndent(svcs, "", "    ")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+		_, err = os.Stdout.Write(data)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err.Error())
+			os.Exit(1)
+		}
+
+		/* End of commands */
+		os.Exit(0)
 	}
 
 	/* Check we have a vdom to search */

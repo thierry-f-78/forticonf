@@ -48,6 +48,7 @@ func main() {
 	var v *Vip
 	var vips []*Vip
 	var svclist bool
+	var used_svc string
 	var svc string
 	var svcs []string
 
@@ -60,6 +61,7 @@ func main() {
 	flag.StringVar(&tcp_port, "tcp",        "",    "Filter policies which allow access to this TCP port. This argument can take more than one port using comma as separator. Note this implies proto TCP")
 	flag.StringVar(&udp_port, "udp",        "",    "Filter policies which allow access to this TCP port. This argument can take more than one port using comma as separator. Note this implies proto UDP")
 	flag.StringVar(&proto,    "proto",      "",    "Filter policies which allow access to this protocol. This argument can take more than one protocol using comma as separator.")
+	flag.StringVar(&used_svc, "svc",        "",    "Filter policies which allow access to this service. This argument can take more than one protocol using comma as separator.")
 	flag.BoolVar(&used_pro,   "used-proto", false, "List all protocols in use in the vdom")
 	flag.StringVar(&search,   "search",     "",    "List all policies containing the search string in name, comments, adresses or services")
 	flag.StringVar(&searchi,  "searchi",    "",    "Same than search but case insensitive")
@@ -119,6 +121,7 @@ func main() {
 	}
 
 	if svclist {
+
 		/* List objects */
 		for svc, _ = range index.Service_name_index {
 			svcs = append(svcs, svc)
@@ -146,7 +149,7 @@ func main() {
 	}
 
 	/* Check we have a vdom to search */
-	if (vip || object || used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "") && index == nil {
+	if (vip || object || used_pro || search != "" || searchi != "" || dest != "" || src != "" || tcp_port != "" || udp_port != "" || proto != "" || used_svc != "" ) && index == nil {
 		fmt.Fprintf(os.Stderr, "must precise vdom with this request. available vdom are: %s\n", strings.Join(Vdom_list, ", "))
 		os.Exit(1)
 	}
@@ -231,6 +234,24 @@ func main() {
 
 		/* End of commands */
 		os.Exit(0)
+	}
+
+	if used_svc != "" {
+
+		/* Split destination using ',' as separator */
+		for _, svc = range strings.Split(used_svc, ",") {
+
+			pols, ok = index.Service_name_index[svc]
+			if !ok {
+				continue
+			}
+
+			/* Merge inter with pols */
+			inter = merge_policies(pols, inter)
+		}
+
+		/* Merge inter with final. we keep intersection of rules */
+		final = intersection_policies(&intersection_started, inter, final)
 	}
 
 	if dest != "" {
